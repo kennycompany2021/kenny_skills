@@ -1,19 +1,28 @@
 # Kenny Skills - Claude Code Marketplace Installer
-# 사용법: PowerShell에서 실행
-#   .\install.ps1
-# 또는 원격 실행:
-#   powershell -ExecutionPolicy Bypass -Command "iwr 'https://raw.githubusercontent.com/kennycompany2021/kenny_skills/main/install.ps1' -OutFile '$env:TEMP\ks-install.ps1'; & '$env:TEMP\ks-install.ps1'"
+# PowerShell 5.1+ compatible (Windows built-in)
+#
+# Usage:
+#   powershell -ExecutionPolicy Bypass -c "iwr 'https://raw.githubusercontent.com/kennycompany2021/kenny_skills/main/install.ps1' -UseBasicParsing | iex"
 
 $ErrorActionPreference = "Stop"
+$OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-$MARKETPLACE_ID   = "kenny-skills"
-$PLUGIN_ID        = "doc-toolkit"
-$PLUGIN_FULL_ID   = "$PLUGIN_ID@$MARKETPLACE_ID"
-$GITHUB_REPO      = "kennycompany2021/kenny_skills"
+$MARKETPLACE_ID = "kenny-skills"
+$PLUGIN_ID      = "doc-toolkit"
+$PLUGIN_FULL_ID = "$PLUGIN_ID@$MARKETPLACE_ID"
+$GITHUB_REPO    = "kennycompany2021/kenny_skills"
 
 $settingsPath        = "$env:USERPROFILE\.claude\settings.json"
 $installedPluginPath = "$env:USERPROFILE\.claude\plugins\installed_plugins.json"
 $cachePath           = "$env:USERPROFILE\.claude\plugins\cache\$MARKETPLACE_ID\$PLUGIN_ID\1.0.0"
+
+# UTF8 without BOM - PS 5.1 compatible
+function Save-JsonFile($path, $obj) {
+    $json = $obj | ConvertTo-Json -Depth 10
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($path, $json, $utf8NoBom)
+}
 
 Write-Host ""
 Write-Host "  Kenny Skills - Claude Code Installer" -ForegroundColor Cyan
@@ -23,48 +32,46 @@ Write-Host ""
 # ── 1. settings.json ──────────────────────────────────────────────────────────
 
 if (-not (Test-Path $settingsPath)) {
-    Write-Host "  [!] settings.json 없음 - 새로 생성합니다" -ForegroundColor Yellow
-    @{ enabledPlugins = @{}; extraKnownMarketplaces = @{} } |
-        ConvertTo-Json -Depth 5 | Set-Content $settingsPath -Encoding UTF8NoBOM
+    Write-Host "  [!] settings.json not found - creating..." -ForegroundColor Yellow
+    $newSettings = [PSCustomObject]@{ enabledPlugins = [PSCustomObject]@{}; extraKnownMarketplaces = [PSCustomObject]@{} }
+    Save-JsonFile $settingsPath $newSettings
 }
 
 $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
 
-# extraKnownMarketplaces 키 확보
+# extraKnownMarketplaces
 if (-not ($settings.PSObject.Properties.Name -contains "extraKnownMarketplaces")) {
     $settings | Add-Member -MemberType NoteProperty -Name "extraKnownMarketplaces" -Value ([PSCustomObject]@{})
 }
 
-# kenny-skills 마켓플레이스 등록
 if ($settings.extraKnownMarketplaces.PSObject.Properties.Name -contains $MARKETPLACE_ID) {
-    Write-Host "  [SKIP] 마켓플레이스 이미 등록됨: $MARKETPLACE_ID" -ForegroundColor DarkGray
+    Write-Host "  [SKIP] Marketplace already registered: $MARKETPLACE_ID" -ForegroundColor DarkGray
 } else {
     $settings.extraKnownMarketplaces | Add-Member -MemberType NoteProperty -Name $MARKETPLACE_ID -Value (
         [PSCustomObject]@{ source = [PSCustomObject]@{ source = "github"; repo = $GITHUB_REPO } }
     )
-    Write-Host "  [OK]   마켓플레이스 등록: $MARKETPLACE_ID" -ForegroundColor Green
+    Write-Host "  [OK]   Marketplace registered: $MARKETPLACE_ID" -ForegroundColor Green
 }
 
-# enabledPlugins 키 확보
+# enabledPlugins
 if (-not ($settings.PSObject.Properties.Name -contains "enabledPlugins")) {
     $settings | Add-Member -MemberType NoteProperty -Name "enabledPlugins" -Value ([PSCustomObject]@{})
 }
 
-# 플러그인 활성화
 if ($settings.enabledPlugins.PSObject.Properties.Name -contains $PLUGIN_FULL_ID) {
-    Write-Host "  [SKIP] 플러그인 이미 활성화됨: $PLUGIN_FULL_ID" -ForegroundColor DarkGray
+    Write-Host "  [SKIP] Plugin already enabled: $PLUGIN_FULL_ID" -ForegroundColor DarkGray
 } else {
     $settings.enabledPlugins | Add-Member -MemberType NoteProperty -Name $PLUGIN_FULL_ID -Value $true
-    Write-Host "  [OK]   플러그인 활성화: $PLUGIN_FULL_ID" -ForegroundColor Green
+    Write-Host "  [OK]   Plugin enabled: $PLUGIN_FULL_ID" -ForegroundColor Green
 }
 
-$settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding UTF8NoBOM
-Write-Host "  [OK]   settings.json 저장 완료" -ForegroundColor Green
+Save-JsonFile $settingsPath $settings
+Write-Host "  [OK]   settings.json saved" -ForegroundColor Green
 
 # ── 2. installed_plugins.json ─────────────────────────────────────────────────
 
 if (-not (Test-Path $installedPluginPath)) {
-    Write-Host "  [!] installed_plugins.json 없음 - 건너뜁니다" -ForegroundColor Yellow
+    Write-Host "  [!] installed_plugins.json not found - skipping" -ForegroundColor Yellow
 } else {
     $installed = Get-Content $installedPluginPath -Raw | ConvertFrom-Json
 
@@ -73,31 +80,28 @@ if (-not (Test-Path $installedPluginPath)) {
     }
 
     if ($installed.plugins.PSObject.Properties.Name -contains $PLUGIN_FULL_ID) {
-        Write-Host "  [SKIP] 설치 기록 이미 존재: $PLUGIN_FULL_ID" -ForegroundColor DarkGray
+        Write-Host "  [SKIP] Install record exists: $PLUGIN_FULL_ID" -ForegroundColor DarkGray
     } else {
         $now = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-        $entry = @(
-            [PSCustomObject]@{
-                scope       = "user"
-                installPath = $cachePath
-                version     = "1.0.0"
-                installedAt = $now
-                lastUpdated = $now
-            }
-        )
+        $entry = @([PSCustomObject]@{
+            scope       = "user"
+            installPath = $cachePath
+            version     = "1.0.0"
+            installedAt = $now
+            lastUpdated = $now
+        })
         $installed.plugins | Add-Member -MemberType NoteProperty -Name $PLUGIN_FULL_ID -Value $entry
-        $installed | ConvertTo-Json -Depth 10 | Set-Content $installedPluginPath -Encoding UTF8NoBOM
-        Write-Host "  [OK]   설치 기록 추가: $PLUGIN_FULL_ID" -ForegroundColor Green
+        Save-JsonFile $installedPluginPath $installed
+        Write-Host "  [OK]   Install record added: $PLUGIN_FULL_ID" -ForegroundColor Green
     }
 }
 
-# ── 완료 ──────────────────────────────────────────────────────────────────────
+# ── Done ──────────────────────────────────────────────────────────────────────
 
 Write-Host ""
-Write-Host "  설치 완료!" -ForegroundColor Cyan
-Write-Host "  Claude Code를 재시작하면 스킬이 활성화됩니다." -ForegroundColor White
+Write-Host "  Done! Restart Claude Code to activate the skills." -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  사용 가능한 스킬:" -ForegroundColor White
-Write-Host "    - doc-toolkit:ppt    (PPT형 발표자료 HTML 생성)" -ForegroundColor Gray
-Write-Host "    - doc-toolkit:report (보고서형 문서 HTML 생성)" -ForegroundColor Gray
+Write-Host "  Available skills:" -ForegroundColor White
+Write-Host "    doc-toolkit:ppt    - PPT-style HTML presentation" -ForegroundColor Gray
+Write-Host "    doc-toolkit:report - Report-style HTML document" -ForegroundColor Gray
 Write-Host ""
