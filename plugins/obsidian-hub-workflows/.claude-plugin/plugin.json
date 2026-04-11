@@ -1,5 +1,0 @@
-{
-  "name": "obsidian-hub-workflows",
-  "version": "1.0.0",
-  "description": "Obsidian-Hub Vault의 반복 작업(태스크·ADR·메모리·프로젝트)을 자동화하는 워크플로우 스킬 모음. CLAUDE.md 규칙을 실행 가능한 알고리즘으로 분해."
-}

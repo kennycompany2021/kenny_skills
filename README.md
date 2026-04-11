@@ -9,16 +9,10 @@ HTML 기반 PPT/보고서 생성 스킬.
 - `ppt` — HTML 슬라이드 발표자료 생성
 - `report` — A4 보고서형 HTML 문서 생성
 
-### `obsidian-hub-workflows`
-Obsidian-Hub Vault의 반복 작업 자동화 (14개 `ob-*` 스킬).
-
-| 카테고리 | Skills |
-|---------|--------|
-| **Task** | `ob-task-create`, `ob-task-analyze`, `ob-task-complete`, `ob-task-status` |
-| **ADR** | `ob-adr-create`, `ob-adr-supersede` |
-| **Memory** | `ob-memory-save-feedback`, `ob-memory-add-gotcha`, `ob-memory-update-pattern`, `ob-memory-update-project`, `ob-user-profile-update` |
-| **Project** | `ob-project-add`, `ob-project-archive` |
-| **Vault** | `ob-vault-conflict-resolve` |
+> **참고**: 과거 이 레포에 있던 `obsidian-hub-workflows` plugin(14개 `ob-*` skill)은
+> [Obsidian-Hub 레포](https://github.com/kennycompany2021/Obsidian-Hub)의 **project-level skill**
+> (`.claude/skills/`)로 이관됐습니다. Vault 전용이라 git clone만으로 즉시 활성화되는
+> 구조가 더 적합해서 marketplace/plugin 메커니즘에서 분리.
 
 ---
 
@@ -34,7 +28,6 @@ Claude Code에서 다음 명령만 실행하면 됩니다:
 ### 2. Plugin 설치
 ```
 /plugin install doc-toolkit@kenny-skills
-/plugin install obsidian-hub-workflows@kenny-skills
 ```
 
 설치 시 scope를 물어봅니다:
@@ -75,30 +68,12 @@ kenny_skills/
 ├── .claude-plugin/
 │   └── marketplace.json             # marketplace 메타 (plugin 목록)
 └── plugins/
-    ├── doc-toolkit/
-    │   ├── .claude-plugin/
-    │   │   └── plugin.json
-    │   └── skills/
-    │       ├── ppt/SKILL.md
-    │       └── report/SKILL.md
-    └── obsidian-hub-workflows/
+    └── doc-toolkit/
         ├── .claude-plugin/
         │   └── plugin.json
         └── skills/
-            ├── ob-task-create/SKILL.md
-            ├── ob-task-analyze/SKILL.md
-            ├── ob-task-complete/SKILL.md
-            ├── ob-task-status/SKILL.md
-            ├── ob-adr-create/SKILL.md
-            ├── ob-adr-supersede/SKILL.md
-            ├── ob-memory-save-feedback/SKILL.md
-            ├── ob-memory-add-gotcha/SKILL.md
-            ├── ob-memory-update-pattern/SKILL.md
-            ├── ob-memory-update-project/SKILL.md
-            ├── ob-user-profile-update/SKILL.md
-            ├── ob-project-add/SKILL.md
-            ├── ob-project-archive/SKILL.md
-            └── ob-vault-conflict-resolve/SKILL.md
+            ├── ppt/SKILL.md
+            └── report/SKILL.md
 ```
 
 ---
