@@ -9,13 +9,24 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $MARKETPLACE_ID = "kenny-skills"
-$PLUGIN_ID      = "doc-toolkit"
-$PLUGIN_FULL_ID = "$PLUGIN_ID@$MARKETPLACE_ID"
 $GITHUB_REPO    = "kennycompany2021/kenny_skills"
+
+# Plugin list (add new plugins here)
+$PLUGINS = @(
+    [PSCustomObject]@{
+        ID = "doc-toolkit"
+        Version = "1.0.0"
+        Description = "Document generation (PPT/Report HTML)"
+    },
+    [PSCustomObject]@{
+        ID = "obsidian-hub-workflows"
+        Version = "1.0.0"
+        Description = "Obsidian-Hub Vault workflows (task, ADR, memory, project)"
+    }
+)
 
 $settingsPath        = "$env:USERPROFILE\.claude\settings.json"
 $installedPluginPath = "$env:USERPROFILE\.claude\plugins\installed_plugins.json"
-$cachePath           = "$env:USERPROFILE\.claude\plugins\cache\$MARKETPLACE_ID\$PLUGIN_ID\1.0.0"
 
 # UTF8 without BOM - PS 5.1 compatible
 function Save-JsonFile($path, $obj) {
@@ -39,7 +50,7 @@ if (-not (Test-Path $settingsPath)) {
 
 $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
 
-# extraKnownMarketplaces
+# extraKnownMarketplaces (marketplace 1회 등록)
 if (-not ($settings.PSObject.Properties.Name -contains "extraKnownMarketplaces")) {
     $settings | Add-Member -MemberType NoteProperty -Name "extraKnownMarketplaces" -Value ([PSCustomObject]@{})
 }
@@ -53,16 +64,20 @@ if ($settings.extraKnownMarketplaces.PSObject.Properties.Name -contains $MARKETP
     Write-Host "  [OK]   Marketplace registered: $MARKETPLACE_ID" -ForegroundColor Green
 }
 
-# enabledPlugins
+# enabledPlugins (각 plugin 활성화)
 if (-not ($settings.PSObject.Properties.Name -contains "enabledPlugins")) {
     $settings | Add-Member -MemberType NoteProperty -Name "enabledPlugins" -Value ([PSCustomObject]@{})
 }
 
-if ($settings.enabledPlugins.PSObject.Properties.Name -contains $PLUGIN_FULL_ID) {
-    Write-Host "  [SKIP] Plugin already enabled: $PLUGIN_FULL_ID" -ForegroundColor DarkGray
-} else {
-    $settings.enabledPlugins | Add-Member -MemberType NoteProperty -Name $PLUGIN_FULL_ID -Value $true
-    Write-Host "  [OK]   Plugin enabled: $PLUGIN_FULL_ID" -ForegroundColor Green
+foreach ($plugin in $PLUGINS) {
+    $pluginFullId = "$($plugin.ID)@$MARKETPLACE_ID"
+
+    if ($settings.enabledPlugins.PSObject.Properties.Name -contains $pluginFullId) {
+        Write-Host "  [SKIP] Plugin already enabled: $pluginFullId" -ForegroundColor DarkGray
+    } else {
+        $settings.enabledPlugins | Add-Member -MemberType NoteProperty -Name $pluginFullId -Value $true
+        Write-Host "  [OK]   Plugin enabled: $pluginFullId" -ForegroundColor Green
+    }
 }
 
 Save-JsonFile $settingsPath $settings
@@ -79,21 +94,27 @@ if (-not (Test-Path $installedPluginPath)) {
         $installed | Add-Member -MemberType NoteProperty -Name "plugins" -Value ([PSCustomObject]@{})
     }
 
-    if ($installed.plugins.PSObject.Properties.Name -contains $PLUGIN_FULL_ID) {
-        Write-Host "  [SKIP] Install record exists: $PLUGIN_FULL_ID" -ForegroundColor DarkGray
-    } else {
-        $now = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-        $entry = @([PSCustomObject]@{
-            scope       = "user"
-            installPath = $cachePath
-            version     = "1.0.0"
-            installedAt = $now
-            lastUpdated = $now
-        })
-        $installed.plugins | Add-Member -MemberType NoteProperty -Name $PLUGIN_FULL_ID -Value $entry
-        Save-JsonFile $installedPluginPath $installed
-        Write-Host "  [OK]   Install record added: $PLUGIN_FULL_ID" -ForegroundColor Green
+    foreach ($plugin in $PLUGINS) {
+        $pluginFullId = "$($plugin.ID)@$MARKETPLACE_ID"
+        $cachePath    = "$env:USERPROFILE\.claude\plugins\cache\$MARKETPLACE_ID\$($plugin.ID)\$($plugin.Version)"
+
+        if ($installed.plugins.PSObject.Properties.Name -contains $pluginFullId) {
+            Write-Host "  [SKIP] Install record exists: $pluginFullId" -ForegroundColor DarkGray
+        } else {
+            $now = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+            $entry = @([PSCustomObject]@{
+                scope       = "user"
+                installPath = $cachePath
+                version     = $plugin.Version
+                installedAt = $now
+                lastUpdated = $now
+            })
+            $installed.plugins | Add-Member -MemberType NoteProperty -Name $pluginFullId -Value $entry
+            Write-Host "  [OK]   Install record added: $pluginFullId" -ForegroundColor Green
+        }
     }
+
+    Save-JsonFile $installedPluginPath $installed
 }
 
 # ── Done ──────────────────────────────────────────────────────────────────────
@@ -101,7 +122,8 @@ if (-not (Test-Path $installedPluginPath)) {
 Write-Host ""
 Write-Host "  Done! Restart Claude Code to activate the skills." -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  Available skills:" -ForegroundColor White
-Write-Host "    doc-toolkit:ppt    - PPT-style HTML presentation" -ForegroundColor Gray
-Write-Host "    doc-toolkit:report - Report-style HTML document" -ForegroundColor Gray
+Write-Host "  Installed plugins:" -ForegroundColor White
+foreach ($plugin in $PLUGINS) {
+    Write-Host "    $($plugin.ID) - $($plugin.Description)" -ForegroundColor Gray
+}
 Write-Host ""
